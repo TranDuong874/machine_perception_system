@@ -7,11 +7,11 @@ from typing import Iterator
 import cv2
 import numpy as np
 
-from .InputStreamBase import InputStreamBase
+from .InputStreamObject import InputStreamObject
 from schema.SensorInputSchema import FrameSample, IMUSample, SensorPacket
 
 
-class EurocInputStream(InputStreamBase):
+class EurocInputStream(InputStreamObject):
     def __init__(self, dataset_root, monocular=True, inertial=True):
         self.dataset_root = Path(dataset_root)
         self.monocular = monocular

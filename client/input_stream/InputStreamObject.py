@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-class InputStreamBase(ABC):
+class InputStreamObject(ABC):
     def __init__(self):
         pass
 
