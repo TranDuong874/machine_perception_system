@@ -9,15 +9,15 @@ import cv2
 import numpy as np
 
 from .InputStreamObject import InputStreamObject
-from schema.SensorInputSchema import FrameSample, IMUSample, SensorPacket
+from machine_perception_system.client.schema.InputSensorSchema import FrameSample, IMUSample, SensorPacket
 
 
 class EurocInputStream(InputStreamObject):
-    def __init__(self, dataset_root, monocular=True, inertial=True, replay_fps: float | None = 20.0):
+    def __init__(self, dataset_root, monocular=True, inertial=True, replay_speed: float = 1.0):
         self.dataset_root = Path(dataset_root)
         self.monocular = monocular
         self.inertial = inertial
-        self.replay_fps = replay_fps
+        self.replay_speed = replay_speed
 
         self.cam0_dir = self.dataset_root / "mav0" / "cam0"
         self.imu0_dir = self.dataset_root / "mav0" / "imu0"
@@ -31,8 +31,8 @@ class EurocInputStream(InputStreamObject):
 
         self._opened = False
         self._exhausted = False
-        self._replay_interval_s = (1.0 / replay_fps) if replay_fps and replay_fps > 0 else None
-        self._next_emit_time_s: float | None = None
+        self._wall_start_time_s: float | None = None
+        self._stream_start_timestamp_ns: int | None = None
 
     def _load_frames(self) -> Iterator[FrameSample]:
         data_csv = self.cam0_dir / "data.csv"
@@ -127,7 +127,8 @@ class EurocInputStream(InputStreamObject):
         self._current_frame = next(self._frame_iter, None)
         self._next_frame = next(self._frame_iter, None)
         self._exhausted = self._current_frame is None
-        self._next_emit_time_s = None
+        self._wall_start_time_s = None
+        self._stream_start_timestamp_ns = None
         self._opened = True
 
     def read_next(self):
@@ -148,8 +149,8 @@ class EurocInputStream(InputStreamObject):
                 imu_window.append(sample)
             self._imu_index += 1
 
+        self._pace_replay(frame.timestamp_ns)
         packet = self._create_sensor_packet(frame, imu_window)
-        self._pace_replay()
 
         self._current_frame = self._next_frame
         self._next_frame = next(self._frame_iter, None) if self._current_frame is not None else None
@@ -158,19 +159,20 @@ class EurocInputStream(InputStreamObject):
 
         return packet
 
-    def _pace_replay(self) -> None:
-        if self._replay_interval_s is None:
+    def _pace_replay(self, frame_timestamp_ns: int) -> None:
+        if self.replay_speed <= 0:
             return
 
-        now = time.perf_counter()
-        if self._next_emit_time_s is None:
-            self._next_emit_time_s = now + self._replay_interval_s
+        if self._wall_start_time_s is None or self._stream_start_timestamp_ns is None:
+            self._wall_start_time_s = time.perf_counter()
+            self._stream_start_timestamp_ns = frame_timestamp_ns
             return
 
-        if now < self._next_emit_time_s:
-            time.sleep(self._next_emit_time_s - now)
-
-        self._next_emit_time_s += self._replay_interval_s
+        elapsed_dataset_s = (frame_timestamp_ns - self._stream_start_timestamp_ns) / 1_000_000_000.0
+        target_time_s = self._wall_start_time_s + (elapsed_dataset_s / self.replay_speed)
+        now_s = time.perf_counter()
+        if now_s < target_time_s:
+            time.sleep(target_time_s - now_s)
 
     def close(self):
         self._frame_iter = None
@@ -178,7 +180,8 @@ class EurocInputStream(InputStreamObject):
         self._next_frame = None
         self._imu_samples = []
         self._imu_index = 0
-        self._next_emit_time_s = None
+        self._wall_start_time_s = None
+        self._stream_start_timestamp_ns = None
         self._opened = False
         self._exhausted = True
 
@@ -192,7 +195,7 @@ if __name__ == "__main__":
         dataset_root=repo_root / "dataset" / "dataset-corridor1_512_16",
         monocular=True,
         inertial=True,
-        replay_fps=20.0,
+        replay_speed=1.0,
     )
     stream.open()
 
