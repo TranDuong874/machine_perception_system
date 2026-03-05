@@ -8,10 +8,6 @@ from schema.SensorInputSchema import SensorPacket
 
 
 class StreamRunner:
-    """
-    Runs an InputStreamObject in a background thread and exposes queue-backed reads.
-    """
-
     def __init__(
         self,
         stream: InputStreamObject,
