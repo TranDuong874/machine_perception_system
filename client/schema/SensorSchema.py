@@ -21,6 +21,39 @@ class LocalSensorPacket:
     imu_samples: tuple[IMUSample, ...]
 
 
-InputSample: TypeAlias = FrameSample | IMUSample
+@dataclass(frozen=True)
+class OrbResult:
+    tracking_state: str | None = None
+    camera_translation_xyz: tuple[float, float, float] | None = None
+    camera_quaternion_wxyz: tuple[float, float, float, float] | None = None
+    body_translation_xyz: tuple[float, float, float] | None = None
+    body_quaternion_wxyz: tuple[float, float, float, float] | None = None
+    tracking_image_bgr: np.ndarray | None = None
+    error: str | None = None
 
-# TODO: Add ServerSensorPacket when the server handoff contract is defined.
+
+@dataclass(frozen=True)
+class YoloDetection:
+    class_id: int
+    class_name: str
+    confidence: float
+    xyxy: tuple[float, float, float, float]
+
+
+@dataclass(frozen=True)
+class YoloResult:
+    detections: tuple[YoloDetection, ...] = ()
+    annotated_image_bgr: np.ndarray | None = None
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class ServerPerceptionPacket:
+    timestamp_ns: int
+    image_bgr: np.ndarray
+    imu_samples: tuple[IMUSample, ...]
+    orb_tracking: OrbResult | None = None
+    yolo_output: YoloResult | None = None
+    segmentation_mask: np.ndarray | None = None
+
+InputSample: TypeAlias = FrameSample | IMUSample

@@ -14,3 +14,6 @@
 /orb_slam3/kf_markers, markers for all keyframes' positions
 /tf, with camera and imu-body poses in world frame
 
+/models
+/models/orb_slam3_ros_noetic.tar.gz
+/models/yolo26n.pt
