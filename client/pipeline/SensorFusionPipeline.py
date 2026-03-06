@@ -120,7 +120,6 @@ class SensorFusionPipeline:
 
                 perception_packet = PerceptionPacket(
                     timestamp_ns=sensor_packet.timestamp_ns,
-                    frame_index=sensor_packet.frame_index,
                     image_bgr=sensor_packet.image_bgr,
                     angular_velocity_rad_s=sensor_packet.angular_velocity_rad_s,
                     linear_acceleration_m_s2=sensor_packet.linear_acceleration_m_s2,

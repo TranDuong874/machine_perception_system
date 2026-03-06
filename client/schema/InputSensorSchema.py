@@ -10,14 +10,12 @@ class IMUSample:
 
 @dataclass(frozen=True)
 class FrameSample:
-    frame_index: int
     timestamp_ns: int
     image_bgr: np.ndarray
 
 @dataclass(frozen=True)
 class SensorPacket:
     timestamp_ns: int
-    frame_index: int
     image_bgr: np.ndarray
     angular_velocity_rad_s: tuple[float, float, float]
     linear_acceleration_m_s2: tuple[float, float, float]

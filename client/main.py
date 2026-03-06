@@ -40,7 +40,6 @@ def main() -> None:
                 break
 
             lines = [
-                f"frame={packet.frame_index}",
                 f"timestamp_ns={packet.timestamp_ns}",
                 "gyro(rad/s)="
                 f"({packet.angular_velocity_rad_s[0]:+.3f}, "

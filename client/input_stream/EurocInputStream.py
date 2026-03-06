@@ -52,7 +52,6 @@ class EurocInputStream(InputStreamObject):
                     raise FileNotFoundError(f"Could not read image: {image_path}")
 
                 yield FrameSample(
-                    frame_index=index,
                     timestamp_ns=timestamp_ns,
                     image_bgr=image_bgr,
                 )
@@ -102,7 +101,6 @@ class EurocInputStream(InputStreamObject):
         mean_gyro, mean_accel = self._mean_imu(imu_window)
         return SensorPacket(
             timestamp_ns=frame.timestamp_ns,
-            frame_index=frame.frame_index,
             image_bgr=frame.image_bgr,
             angular_velocity_rad_s=mean_gyro,
             linear_acceleration_m_s2=mean_accel,
@@ -204,7 +202,7 @@ if __name__ == "__main__":
         if packet is None:
             break
         print(
-            f"frame={packet.frame_index} ts={packet.timestamp_ns} "
+            f"ts={packet.timestamp_ns} "
             f"gyro={packet.angular_velocity_rad_s} accel={packet.linear_acceleration_m_s2}"
         )
 
