@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TypeAlias
+
 import numpy as np
 
 @dataclass(frozen=True)
@@ -14,10 +15,12 @@ class FrameSample:
     image_bgr: np.ndarray
 
 @dataclass(frozen=True)
-class SensorPacket:
+class LocalSensorPacket:
     timestamp_ns: int
     image_bgr: np.ndarray
-    angular_velocity_rad_s: tuple[float, float, float]
-    linear_acceleration_m_s2: tuple[float, float, float]
-    
-    
+    imu_samples: tuple[IMUSample, ...]
+
+
+InputSample: TypeAlias = FrameSample | IMUSample
+
+# TODO: Add ServerSensorPacket when the server handoff contract is defined.

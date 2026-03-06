@@ -6,13 +6,12 @@ import time
 from typing import Iterator
 
 import cv2
-import numpy as np
 
-from .InputStreamObject import InputStreamObject
-from schema.InputSensorSchema import FrameSample, IMUSample, SensorPacket
+from .InputSource import InputSource
+from schema.SensorSchema import FrameSample, IMUSample, InputSample
 
 
-class EurocInputStream(InputStreamObject):
+class EurocInputSource(InputSource[InputSample]):
     def __init__(self, dataset_root, monocular=True, inertial=True, replay_speed: float = 1.0):
         self.dataset_root = Path(dataset_root)
         self.monocular = monocular
@@ -23,8 +22,8 @@ class EurocInputStream(InputStreamObject):
         self.imu0_dir = self.dataset_root / "mav0" / "imu0"
 
         self._frame_iter: Iterator[FrameSample] | None = None
-        self._current_frame: FrameSample | None = None
         self._next_frame: FrameSample | None = None
+        self._next_imu: IMUSample | None = None
 
         self._imu_samples: list[IMUSample] = []
         self._imu_index = 0
@@ -41,7 +40,7 @@ class EurocInputStream(InputStreamObject):
         with data_csv.open(newline="", encoding="utf-8") as handle:
             reader = csv.reader(handle)
             next(reader, None)  # skip header
-            for index, row in enumerate(reader):
+            for row in reader:
                 if len(row) < 2:
                     continue
 
@@ -84,29 +83,7 @@ class EurocInputStream(InputStreamObject):
 
         return imu_samples
 
-    @staticmethod
-    def _mean_imu(imu_window: list[IMUSample]) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
-        if not imu_window:
-            zeros = (0.0, 0.0, 0.0)
-            return zeros, zeros
-
-        gyro = np.array([sample.angular_velocity_rad_s for sample in imu_window], dtype=np.float64)
-        accel = np.array([sample.linear_acceleration_m_s2 for sample in imu_window], dtype=np.float64)
-
-        mean_gyro = tuple(float(x) for x in gyro.mean(axis=0))
-        mean_accel = tuple(float(x) for x in accel.mean(axis=0))
-        return mean_gyro, mean_accel
-
-    def _create_sensor_packet(self, frame: FrameSample, imu_window: list[IMUSample]) -> SensorPacket:
-        mean_gyro, mean_accel = self._mean_imu(imu_window)
-        return SensorPacket(
-            timestamp_ns=frame.timestamp_ns,
-            image_bgr=frame.image_bgr,
-            angular_velocity_rad_s=mean_gyro,
-            linear_acceleration_m_s2=mean_accel,
-        )
-
-    def open(self):
+    def open(self) -> None:
         if self._opened:
             return
 
@@ -122,60 +99,77 @@ class EurocInputStream(InputStreamObject):
         self._imu_samples = self._load_imu_samples() if self.inertial else []
         self._imu_index = 0
 
-        self._current_frame = next(self._frame_iter, None)
         self._next_frame = next(self._frame_iter, None)
-        self._exhausted = self._current_frame is None
+        self._next_imu = self._imu_samples[self._imu_index] if self._imu_samples else None
+        self._exhausted = self._next_frame is None and self._next_imu is None
         self._wall_start_time_s = None
         self._stream_start_timestamp_ns = None
         self._opened = True
 
-    def read_next(self):
+    def read_next(self) -> InputSample | None:
         if not self._opened:
-            raise RuntimeError("EurocInputStream is not opened. Call open() first.")
-        if self._exhausted or self._current_frame is None:
+            raise RuntimeError("EurocInputSource is not opened. Call open() first.")
+        if self._exhausted:
             return None
 
-        frame = self._current_frame
-        interval_end = self._next_frame.timestamp_ns if self._next_frame is not None else float("inf")
-
-        imu_window: list[IMUSample] = []
-        while self._imu_index < len(self._imu_samples):
-            sample = self._imu_samples[self._imu_index]
-            if sample.timestamp_ns >= interval_end:
-                break
-            if sample.timestamp_ns >= frame.timestamp_ns:
-                imu_window.append(sample)
-            self._imu_index += 1
-
-        self._pace_replay(frame.timestamp_ns)
-        packet = self._create_sensor_packet(frame, imu_window)
-
-        self._current_frame = self._next_frame
-        self._next_frame = next(self._frame_iter, None) if self._current_frame is not None else None
-        if self._current_frame is None:
+        sample = self._pop_next_sample()
+        if sample is None:
             self._exhausted = True
+            return None
 
-        return packet
+        self._pace_replay(sample.timestamp_ns)
+        self._exhausted = self._next_frame is None and self._next_imu is None
+        return sample
 
-    def _pace_replay(self, frame_timestamp_ns: int) -> None:
+    def _pop_next_sample(self) -> InputSample | None:
+        if self._next_frame is None and self._next_imu is None:
+            return None
+
+        if self._next_frame is None:
+            return self._pop_imu()
+
+        if self._next_imu is None:
+            return self._pop_frame()
+
+        if self._next_imu.timestamp_ns <= self._next_frame.timestamp_ns:
+            return self._pop_imu()
+        return self._pop_frame()
+
+    def _pop_frame(self) -> FrameSample | None:
+        frame = self._next_frame
+        if frame is None:
+            return None
+        self._next_frame = next(self._frame_iter, None) if self._frame_iter is not None else None
+        return frame
+
+    def _pop_imu(self) -> IMUSample | None:
+        if self._next_imu is None:
+            return None
+
+        sample = self._next_imu
+        self._imu_index += 1
+        self._next_imu = self._imu_samples[self._imu_index] if self._imu_index < len(self._imu_samples) else None
+        return sample
+
+    def _pace_replay(self, sample_timestamp_ns: int) -> None:
         if self.replay_speed <= 0:
             return
 
         if self._wall_start_time_s is None or self._stream_start_timestamp_ns is None:
             self._wall_start_time_s = time.perf_counter()
-            self._stream_start_timestamp_ns = frame_timestamp_ns
+            self._stream_start_timestamp_ns = sample_timestamp_ns
             return
 
-        elapsed_dataset_s = (frame_timestamp_ns - self._stream_start_timestamp_ns) / 1_000_000_000.0
+        elapsed_dataset_s = (sample_timestamp_ns - self._stream_start_timestamp_ns) / 1_000_000_000.0
         target_time_s = self._wall_start_time_s + (elapsed_dataset_s / self.replay_speed)
         now_s = time.perf_counter()
         if now_s < target_time_s:
             time.sleep(target_time_s - now_s)
 
-    def close(self):
+    def close(self) -> None:
         self._frame_iter = None
-        self._current_frame = None
         self._next_frame = None
+        self._next_imu = None
         self._imu_samples = []
         self._imu_index = 0
         self._wall_start_time_s = None
@@ -183,27 +177,24 @@ class EurocInputStream(InputStreamObject):
         self._opened = False
         self._exhausted = True
 
-    def is_exhausted(self):
+    def is_exhausted(self) -> bool:
         return self._exhausted
 
 
 if __name__ == "__main__":
     repo_root = Path(__file__).resolve().parents[3]
-    stream = EurocInputStream(
-        dataset_root=repo_root / "dataset" / "dataset-corridor1_512_16",
+    source = EurocInputSource(
+        dataset_root=repo_root / "dataset" / "dataset-corridor4_512_16",
         monocular=True,
         inertial=True,
         replay_speed=1.0,
     )
-    stream.open()
+    source.open()
 
     for _ in range(5):
-        packet = stream.read_next()
-        if packet is None:
+        sample = source.read_next()
+        if sample is None:
             break
-        print(
-            f"ts={packet.timestamp_ns} "
-            f"gyro={packet.angular_velocity_rad_s} accel={packet.linear_acceleration_m_s2}"
-        )
+        print(f"{type(sample).__name__}: ts={sample.timestamp_ns}")
 
-    stream.close()
+    source.close()

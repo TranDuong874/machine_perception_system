@@ -2,25 +2,28 @@ from __future__ import annotations
 
 import queue
 import threading
+from typing import Generic, TypeVar
 
-from .InputStreamObject import InputStreamObject
-from schema.InputSensorSchema import SensorPacket
+from .InputSource import InputSource
 
 
-class StreamRunner:
+T = TypeVar("T")
+
+
+class StreamRunner(Generic[T]):
     def __init__(
         self,
-        stream: InputStreamObject,
+        source: InputSource[T],
         queue_size: int = 16,
         poll_timeout_s: float = 0.1,
         drop_oldest_when_full: bool = True,
     ) -> None:
-        self.stream = stream
+        self.source = source
         self.queue_size = queue_size
         self.poll_timeout_s = poll_timeout_s
         self.drop_oldest_when_full = drop_oldest_when_full
 
-        self.output_queue: queue.Queue[SensorPacket] = queue.Queue(maxsize=queue_size)
+        self.output_queue: queue.Queue[T] = queue.Queue(maxsize=queue_size)
         self.stop_event = threading.Event()
         self.done_event = threading.Event()
         self._worker_thread: threading.Thread | None = None
@@ -31,7 +34,7 @@ class StreamRunner:
 
         self.stop_event.clear()
         self.done_event.clear()
-        self.stream.open()
+        self.source.open()
         self._worker_thread = threading.Thread(
             target=self._run,
             name="stream-runner",
@@ -44,7 +47,7 @@ class StreamRunner:
         if self._worker_thread is not None:
             self._worker_thread.join(timeout=2.0)
 
-    def read(self, timeout_s: float | None = None) -> SensorPacket | None:
+    def read(self, timeout_s: float | None = None) -> T | None:
         timeout = self.poll_timeout_s if timeout_s is None else timeout_s
         while True:
             if self.done_event.is_set() and self.output_queue.empty():
@@ -61,18 +64,18 @@ class StreamRunner:
     def _run(self) -> None:
         try:
             while not self.stop_event.is_set():
-                packet = self.stream.read_next()
-                if packet is None:
+                item = self.source.read_next()
+                if item is None:
                     break
-                self._push_packet(packet)
+                self._push_item(item)
         finally:
-            self.stream.close()
+            self.source.close()
             self.done_event.set()
             self.stop_event.set()
 
-    def _push_packet(self, packet: SensorPacket) -> None:
+    def _push_item(self, item: T) -> None:
         if not self.output_queue.full():
-            self.output_queue.put_nowait(packet)
+            self.output_queue.put_nowait(item)
             return
 
         if not self.drop_oldest_when_full:
@@ -82,4 +85,4 @@ class StreamRunner:
             self.output_queue.get_nowait()
         except queue.Empty:
             pass
-        self.output_queue.put_nowait(packet)
+        self.output_queue.put_nowait(item)
