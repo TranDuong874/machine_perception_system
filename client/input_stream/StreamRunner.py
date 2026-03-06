@@ -4,7 +4,7 @@ import queue
 import threading
 
 from .InputStreamObject import InputStreamObject
-from machine_perception_system.client.schema.InputSensorSchema import SensorPacket
+from schema.InputSensorSchema import SensorPacket
 
 
 class StreamRunner:

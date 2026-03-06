@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 
 from .InputStreamObject import InputStreamObject
-from machine_perception_system.client.schema.InputSensorSchema import FrameSample, IMUSample, SensorPacket
+from schema.InputSensorSchema import FrameSample, IMUSample, SensorPacket
 
 
 class EurocInputStream(InputStreamObject):

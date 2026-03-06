@@ -21,6 +21,9 @@ class SensorFusionPipeline:
         pose_time_tolerance_ns: int = 50_000_000,
         max_pose_buffer_size: int = 256,
         drop_oldest_when_full: bool = True,
+        emit_without_pose: bool = False,
+        auto_estimate_pose_time_offset: bool = True,
+        use_latest_pose_if_unsynced: bool = True,
     ) -> None:
         self.input_queue = input_queue
         self.output_queue: queue.Queue[PerceptionPacket] = queue.Queue(maxsize=output_queue_size)
@@ -29,6 +32,9 @@ class SensorFusionPipeline:
         self.pose_time_tolerance_ns = pose_time_tolerance_ns
         self.max_pose_buffer_size = max_pose_buffer_size
         self.drop_oldest_when_full = drop_oldest_when_full
+        self.emit_without_pose = emit_without_pose
+        self.auto_estimate_pose_time_offset = auto_estimate_pose_time_offset
+        self.use_latest_pose_if_unsynced = use_latest_pose_if_unsynced
 
         self.stop_event = threading.Event()
         self.done_event = threading.Event()
@@ -37,6 +43,7 @@ class SensorFusionPipeline:
 
         self._pose_lock = threading.Lock()
         self._pose_buffer: list[PoseSample] = []
+        self._pose_clock_offset_ns: int | None = None
 
     def start(self, upstream_done_event: threading.Event | None = None) -> None:
         if self._worker_thread is not None and self._worker_thread.is_alive():
@@ -93,8 +100,23 @@ class SensorFusionPipeline:
                     continue
 
                 pose_sample = self._nearest_pose(sensor_packet.timestamp_ns)
+                if pose_sample is None and self.auto_estimate_pose_time_offset:
+                    self._estimate_pose_clock_offset(sensor_packet.timestamp_ns)
+                    pose_sample = self._nearest_pose(sensor_packet.timestamp_ns)
+
                 if pose_sample is None:
-                    continue
+                    if self.use_latest_pose_if_unsynced:
+                        pose_sample = self._latest_pose_with_state("TRACKING_UNSYNC")
+                    if not self.emit_without_pose:
+                        if pose_sample is None:
+                            continue
+                    if pose_sample is None:
+                        pose_sample = PoseSample(
+                            timestamp_ns=sensor_packet.timestamp_ns,
+                            translation_xyz=(0.0, 0.0, 0.0),
+                            quaternion_wxyz=(1.0, 0.0, 0.0, 0.0),
+                            tracking_state="NO_POSE",
+                        )
 
                 perception_packet = PerceptionPacket(
                     timestamp_ns=sensor_packet.timestamp_ns,
@@ -113,14 +135,35 @@ class SensorFusionPipeline:
         with self._pose_lock:
             if not self._pose_buffer:
                 return None
+            offset_ns = self._pose_clock_offset_ns or 0
             nearest = min(
                 self._pose_buffer,
-                key=lambda pose: abs(pose.timestamp_ns - timestamp_ns),
+                key=lambda pose: abs((pose.timestamp_ns + offset_ns) - timestamp_ns),
             )
 
-        if abs(nearest.timestamp_ns - timestamp_ns) > self.pose_time_tolerance_ns:
+        nearest_delta = abs((nearest.timestamp_ns + (self._pose_clock_offset_ns or 0)) - timestamp_ns)
+        if nearest_delta > self.pose_time_tolerance_ns:
             return None
         return nearest
+
+    def _estimate_pose_clock_offset(self, sensor_timestamp_ns: int) -> None:
+        with self._pose_lock:
+            if self._pose_clock_offset_ns is not None or not self._pose_buffer:
+                return
+            latest_pose = self._pose_buffer[-1]
+            self._pose_clock_offset_ns = sensor_timestamp_ns - latest_pose.timestamp_ns
+
+    def _latest_pose_with_state(self, tracking_state: str) -> PoseSample | None:
+        with self._pose_lock:
+            if not self._pose_buffer:
+                return None
+            latest = self._pose_buffer[-1]
+        return PoseSample(
+            timestamp_ns=latest.timestamp_ns,
+            translation_xyz=latest.translation_xyz,
+            quaternion_wxyz=latest.quaternion_wxyz,
+            tracking_state=tracking_state,
+        )
 
     def _push_output(self, packet: PerceptionPacket) -> None:
         if not self.output_queue.full():
