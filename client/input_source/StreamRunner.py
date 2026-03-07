@@ -79,6 +79,12 @@ class StreamRunner(Generic[T]):
             return
 
         if not self.drop_oldest_when_full:
+            while not self.stop_event.is_set():
+                try:
+                    self.output_queue.put(item, timeout=self.poll_timeout_s)
+                    return
+                except queue.Full:
+                    continue
             return
 
         try:

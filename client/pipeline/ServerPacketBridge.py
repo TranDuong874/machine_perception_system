@@ -2,18 +2,33 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import sys
 from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
 
 from schema.SensorSchema import LocalSensorPacket, OrbResult, ServerPerceptionPacket, YoloResult
+from .Trajectory3D import Trajectory3DVisualizer, TrajectorySample
 
 if TYPE_CHECKING:
     from local_services import DetectionService, SlamService
 
 
 HEADLESS_PREVIEW_PATH = Path("/tmp/machine_perception_system_server_packet_preview.jpg")
+_TRAJECTORY_VISUALIZER: Trajectory3DVisualizer | None = None
+_TRAJECTORY_VISUALIZER_DISABLED = False
+_TRAJECTORY_VISUALIZER_DISABLE_REASON: str | None = None
+
+
+def close_visualizers() -> None:
+    global _TRAJECTORY_VISUALIZER
+    if _TRAJECTORY_VISUALIZER is None:
+        return
+    try:
+        _TRAJECTORY_VISUALIZER.close()
+    finally:
+        _TRAJECTORY_VISUALIZER = None
 
 
 def collect_server_perception_packet(
@@ -68,10 +83,59 @@ def stream_server_perception_packet(packet: ServerPerceptionPacket) -> None:
         lines.append(f"orb_error={packet.orb_tracking.error}")
 
     frame = _overlay_text(composed, lines)
+    _update_trajectory_visualizer(packet)
     if os.environ.get("MPS_ENABLE_GUI") == "1":
         cv2.imshow("Server Packet Preview", frame)
         return
     cv2.imwrite(str(HEADLESS_PREVIEW_PATH), frame)
+
+
+def _update_trajectory_visualizer(packet: ServerPerceptionPacket) -> None:
+    if os.environ.get("MPS_ENABLE_TRAJECTORY_3D", "0") != "1":
+        return
+    if os.environ.get("MPS_ENABLE_GUI") != "1":
+        return
+    if packet.orb_tracking is None or packet.orb_tracking.camera_translation_xyz is None:
+        return
+
+    visualizer = _get_trajectory_visualizer()
+    if visualizer is None:
+        return
+
+    state = packet.orb_tracking.tracking_state or "UNKNOWN"
+    sample = TrajectorySample(xyz=packet.orb_tracking.camera_translation_xyz, tracking_state=state)
+    try:
+        visualizer.update(sample)
+    except Exception:
+        _disable_trajectory_visualizer()
+
+
+def _get_trajectory_visualizer() -> Trajectory3DVisualizer | None:
+    global _TRAJECTORY_VISUALIZER
+    if _TRAJECTORY_VISUALIZER_DISABLED:
+        return None
+    if _TRAJECTORY_VISUALIZER is not None:
+        return _TRAJECTORY_VISUALIZER
+    try:
+        _TRAJECTORY_VISUALIZER = Trajectory3DVisualizer()
+    except Exception as exc:
+        _disable_trajectory_visualizer(f"trajectory visualizer init failed: {exc}")
+        return None
+    return _TRAJECTORY_VISUALIZER
+
+
+def _disable_trajectory_visualizer(reason: str | None = None) -> None:
+    global _TRAJECTORY_VISUALIZER_DISABLED, _TRAJECTORY_VISUALIZER, _TRAJECTORY_VISUALIZER_DISABLE_REASON
+    _TRAJECTORY_VISUALIZER_DISABLED = True
+    _TRAJECTORY_VISUALIZER = None
+    if reason:
+        _TRAJECTORY_VISUALIZER_DISABLE_REASON = reason
+    if _TRAJECTORY_VISUALIZER_DISABLE_REASON:
+        print(
+            f"[ServerPacketBridge] 3D trajectory disabled: {_TRAJECTORY_VISUALIZER_DISABLE_REASON}",
+            file=sys.stderr,
+        )
+        _TRAJECTORY_VISUALIZER_DISABLE_REASON = None
 
 
 def _compose_panels(panels: list[np.ndarray]) -> np.ndarray:
