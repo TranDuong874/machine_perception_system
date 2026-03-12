@@ -4,8 +4,6 @@ from collections import deque
 
 from schema.SensorSchema import IMUSample, InputSample, LocalSensorPacket
 
-# TODO: Add interpolation for live input and define exact frame interval semantics.
-
 class LocalProcessingIngress:
     # Entry boundary from raw sensor samples into downstream local processing.
     def __init__(self, max_pending_imu: int = 4000) -> None:

@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package mps.perception.v1;
+
+message ImuSample {
+  int64 timestamp_ns = 1;
+  repeated float angular_velocity_rad_s = 2;
+  repeated float linear_acceleration_m_s2 = 3;
+}
+
+message YoloDetection {
+  int32 class_id = 1;
+  string class_name = 2;
+  float confidence = 3;
+  repeated float xyxy = 4;
+}
+
+message YoloResult {
+  repeated YoloDetection detections = 1;
+  bytes annotated_image_jpeg = 2;
+  string error = 3;
+}
+
+message OrbResult {
+  string tracking_state = 1;
+  repeated float camera_translation_xyz = 2;
+  repeated float camera_quaternion_wxyz = 3;
+  repeated float body_translation_xyz = 4;
+  repeated float body_quaternion_wxyz = 5;
+  bytes tracking_image_jpeg = 6;
+  string error = 7;
+}
+
+message ServerPerceptionPacket {
+  int64 timestamp_ns = 1;
+  bytes image_jpeg = 2;
+  repeated ImuSample imu_samples = 3;
+  OrbResult orb_tracking = 4;
+  YoloResult yolo_output = 5;
+  bytes segmentation_mask_png = 6;
+}
+
+message SubmitPacketRequest {
+  ServerPerceptionPacket packet = 1;
+}
+
+message SubmitPacketReply {
+  string status = 1;
+  string message = 2;
+  int64 timestamp_ns = 3;
+  int64 received_packets = 4;
+  int64 rejected_packets = 5;
+  TopDownMap topdown_map = 6;
+}
+
+message TopDownMap {
+  string map_id = 1;
+  uint64 revision = 2;
+  int64 timestamp_ns = 3;
+  string tracking_state = 4;
+  bool pose_valid = 5;
+  float resolution_m = 6;
+  int32 width = 7;
+  int32 height = 8;
+  float origin_x_m = 9;
+  float origin_z_m = 10;
+  repeated float latest_user_translation_xyz = 11;
+  bytes occupancy_png = 12;
+  string backend = 13;
+}
+
+service PerceptionIngestService {
+  rpc SubmitPacket(SubmitPacketRequest) returns (SubmitPacketReply);
+}

@@ -6,12 +6,13 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 ORB_ROOT="${MPS_ORB_ROOT:-}"
 if [[ -z "${ORB_ROOT}" ]]; then
-  if [[ -f "${REPO_ROOT}/dependency/ORB_SLAM3/lib/libORB_SLAM3.so" ]]; then
-    ORB_ROOT="${REPO_ROOT}/dependency/ORB_SLAM3"
+  if [[ -f "${REPO_ROOT}/dependency/ORB_SLAM3_FIXED/lib/libORB_SLAM3.so" ]]; then
+    ORB_ROOT="${REPO_ROOT}/dependency/ORB_SLAM3_FIXED"
   elif [[ -f "/home/tranduong/dev/thesis_prototype/spatial_mapping_demo/ORB-SLAM3-STEREO-FIXED/lib/libORB_SLAM3.so" ]]; then
     ORB_ROOT="/home/tranduong/dev/thesis_prototype/spatial_mapping_demo/ORB-SLAM3-STEREO-FIXED"
   else
-    echo "Could not locate ORB root with lib/libORB_SLAM3.so." >&2
+    echo "Could not locate fixed ORB root with lib/libORB_SLAM3.so." >&2
+    echo "Expected: ${REPO_ROOT}/dependency/ORB_SLAM3_FIXED" >&2
     echo "Set MPS_ORB_ROOT explicitly." >&2
     exit 1
   fi

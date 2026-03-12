@@ -12,7 +12,13 @@ from schema.SensorSchema import FrameSample, IMUSample, InputSample
 
 
 class EurocInputSource(InputSource[InputSample]):
-    def __init__(self, dataset_root, monocular=True, inertial=True, replay_speed: float = 1.0):
+    def __init__(
+        self,
+        dataset_root: str | Path,
+        monocular: bool = True,
+        inertial: bool = True,
+        replay_speed: float = 1.0,
+    ) -> None:
         self.dataset_root = Path(dataset_root)
         self.monocular = monocular
         self.inertial = inertial
@@ -179,22 +185,3 @@ class EurocInputSource(InputSource[InputSample]):
 
     def is_exhausted(self) -> bool:
         return self._exhausted
-
-
-if __name__ == "__main__":
-    repo_root = Path(__file__).resolve().parents[3]
-    source = EurocInputSource(
-        dataset_root=repo_root / "dataset" / "dataset-corridor4_512_16",
-        monocular=True,
-        inertial=True,
-        replay_speed=1.0,
-    )
-    source.open()
-
-    for _ in range(5):
-        sample = source.read_next()
-        if sample is None:
-            break
-        print(f"{type(sample).__name__}: ts={sample.timestamp_ns}")
-
-    source.close()

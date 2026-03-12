@@ -4,3 +4,8 @@ __pycache__/
 .venv/
 *.pt
 dataset/*
+integration/orb_native/bin/
+integration/orb_native/build/
+dependency/ORB_SLAM3/
+dependency/ORB_SLAM3_FIXED/
+models/orbvoc.txt.bin
