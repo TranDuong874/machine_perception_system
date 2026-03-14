@@ -6,10 +6,23 @@ End-to-end POC pipeline:
 `Input -> SensorPacketSynchronizer -> YOLO + ORB -> PerceptionPipeline -> server`
 
 Runtime defaults are loaded automatically from:
-- `config/client.env`
-- `config/server.env`
+- `config/client.env` if present, otherwise `config/client.env.example`
+- `config/server.env` if present, otherwise `config/server.env.example`
 
 Shell environment variables still override values from those files.
+
+Local secret/config pattern:
+- keep real local values in untracked `config/client.env` and `config/server.env`
+- commit only `config/client.env.example` and `config/server.env.example`
+- export secrets like `GROQ_API_KEY` from your shell instead of committing them
+
+## Helper Scripts
+
+- `start_stack.sh`: start ORB adapter, server, and client together
+- `scripts/run_server.sh`: run only the server
+- `scripts/query_scene.sh`: query the VLM HTTP API
+- `scripts/query_memory.sh`: query the memory index directly
+- `scripts/run_mcp_server.sh`: start the MCP stdio server
 
 ## Current Architecture
 
@@ -108,7 +121,7 @@ integration/orb_native/run_native_adapter.sh
 ```bash
 cd /home/tranduong/dev/thesis_prototype/machine_perception_system
 
-./run_server.sh
+./scripts/run_server.sh
 ```
 
 Outputs:
@@ -116,7 +129,7 @@ Outputs:
 - first accepted packet is logged as `[ingestion] processed=1 ...`
 - `SubmitPacketReply` is currently used as an ingestion acknowledgement only
 - preview window or headless preview image from `server/rendering/preview_renderer.py`
-- `run_server.sh` reads `config/server.env` and launches the server from the main project `.venv`
+- `scripts/run_server.sh` reads `config/server.env` and launches the server from the main project `.venv`
 
 Depth preview on the 6GB GPU:
 ```bash
@@ -124,7 +137,7 @@ cd /home/tranduong/dev/thesis_prototype/machine_perception_system
 
 MPS_SERVER_ENABLE_GUI=0 \
 MPS_SERVER_HEADLESS_PREVIEW_PATH=/tmp/mps_server_depth_preview.jpg \
-./run_server.sh
+./scripts/run_server.sh
 ```
 
 Notes:

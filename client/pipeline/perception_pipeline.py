@@ -33,6 +33,7 @@ class PerceptionPipeline:
         self._transport_error_log_interval_s = float(
             os.environ.get("MPS_SERVER_BRIDGE_LOG_INTERVAL_S", "2.0")
         )
+        self._last_logged_map_revision = 0
 
     def run(self) -> None:
         try:
@@ -91,7 +92,12 @@ class PerceptionPipeline:
             "Stages: StreamRunner -> SensorPacketSynchronizer -> "
             "DetectionService + SlamService -> PerceptionPipeline -> server"
         )
-        print("Press 'q' in the UI window to quit.")
+        if self._config.user_gui_enabled:
+            print(
+                "UI: click the Assistant Chat input box to ask questions; "
+                "press Tab there to switch current/rag mode."
+            )
+        print("Press 'q' in the preview window to quit.")
 
     def _run_stream_loop(self) -> None:
         frames_processed = 0
@@ -172,6 +178,22 @@ class PerceptionPipeline:
                 f"status={reply.status} message={reply.message}",
                 file=sys.stderr,
             )
+            return
+
+        if reply.HasField("topdown_map"):
+            map_revision = int(reply.topdown_map.revision)
+            if map_revision > self._last_logged_map_revision and (
+                map_revision == 1 or map_revision % 20 == 0
+            ):
+                pose = tuple(reply.topdown_map.latest_user_translation_xyz)
+                pose_text = pose if pose else ()
+                print(
+                    f"[PerceptionPipeline] map revision={map_revision} "
+                    f"tracking={reply.topdown_map.tracking_state} "
+                    f"pose_valid={reply.topdown_map.pose_valid} "
+                    f"user_xyz={pose_text}"
+                )
+                self._last_logged_map_revision = map_revision
 
     def _get_perception_client(self):
         if self._perception_client is not None:

@@ -1,0 +1,27 @@
+# Core runtime
+numpy==2.3.5
+opencv-python==4.13.0.92
+Pillow==12.0.0
+PyYAML==6.0.3
+
+# ML / vision
+torch==2.10.0
+ultralytics==8.4.19
+open_clip_torch==3.3.0
+faiss-cpu==1.13.2
+
+# API / transport
+grpcio==1.78.0
+grpcio-tools==1.78.0
+protobuf==6.33.5
+fastapi==0.135.1
+uvicorn==0.41.0
+pydantic==2.12.5
+httpx==0.28.1
+
+# Tooling
+mcp==1.26.0
+groq==1.1.1
+
+# Depth Anything 3 is currently loaded from ./dependency/Depth-Anything-3 via sys.path.
+# If you want it installed into the environment instead, add an editable/local package line here.

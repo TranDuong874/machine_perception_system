@@ -14,6 +14,7 @@ DEFAULT_DATASET_NAMES = (
     "dataset-corridor1_512_16",
 )
 DEFAULT_CLIENT_ENV_FILE = REPO_ROOT / "config" / "client.env"
+DEFAULT_CLIENT_ENV_EXAMPLE_FILE = REPO_ROOT / "config" / "client.env.example"
 
 
 @dataclass(frozen=True)
@@ -29,10 +30,15 @@ class ClientConfig:
     server_transport: str
     server_host: str
     server_port: int
+    vlm_host: str
+    vlm_port: int
     gui_enabled: bool
     user_gui_enabled: bool
     poll_timeout_s: float = 0.5
     frame_delay_ms: int = 1
+    vlm_timeout_s: float = 90.0
+    chat_top_k: int = 3
+    chat_default_mode: str = "current"
     runner_queue_size: int = 256
     runner_poll_timeout_s: float = 0.1
     runner_drop_oldest_when_full: bool = False
@@ -51,9 +57,17 @@ class ClientConfig:
     def server_target(self) -> str:
         return f"{self.server_host}:{self.server_port}"
 
+    @property
+    def vlm_target(self) -> str:
+        return f"{self.vlm_host}:{self.vlm_port}"
+
 
 def load_client_config() -> ClientConfig:
-    _load_env_file(Path(os.environ.get("MPS_CLIENT_ENV_FILE", str(DEFAULT_CLIENT_ENV_FILE))))
+    env_file = _resolve_env_file(
+        Path(os.environ.get("MPS_CLIENT_ENV_FILE", str(DEFAULT_CLIENT_ENV_FILE))),
+        fallback=DEFAULT_CLIENT_ENV_EXAMPLE_FILE,
+    )
+    _load_env_file(env_file)
     gui_enabled = _resolve_gui_enabled()
     user_gui_enabled = _resolve_user_gui_enabled(gui_enabled)
 
@@ -72,8 +86,24 @@ def load_client_config() -> ClientConfig:
         server_transport=os.environ.get("MPS_SERVER_TRANSPORT", "grpc").strip().lower(),
         server_host=os.environ.get("MPS_SERVER_HOST", "127.0.0.1"),
         server_port=int(os.environ.get("MPS_SERVER_PORT", "19100")),
+        vlm_host=os.environ.get(
+            "MPS_VLM_HOST",
+            os.environ.get(
+                "MPS_SERVER_VLM_BIND_HOST",
+                os.environ.get("MPS_SERVER_HOST", "127.0.0.1"),
+            ),
+        ),
+        vlm_port=int(
+            os.environ.get(
+                "MPS_VLM_PORT",
+                os.environ.get("MPS_SERVER_VLM_PORT", "19110"),
+            )
+        ),
         gui_enabled=gui_enabled,
         user_gui_enabled=user_gui_enabled,
+        vlm_timeout_s=max(1.0, float(os.environ.get("MPS_VLM_TIMEOUT_S", "90.0"))),
+        chat_top_k=max(1, int(os.environ.get("MPS_CHAT_TOP_K", "3"))),
+        chat_default_mode=_resolve_chat_default_mode(),
     )
 
 
@@ -130,6 +160,13 @@ def _env_int(name: str) -> int | None:
     if raw is None or raw.strip() == "":
         return None
     return int(raw)
+
+
+def _resolve_chat_default_mode() -> str:
+    mode = os.environ.get("MPS_CHAT_DEFAULT_MODE", "current").strip().lower()
+    if mode not in {"current", "rag"}:
+        raise ValueError(f"Invalid MPS_CHAT_DEFAULT_MODE: {mode}")
+    return mode
 
 
 def _dataset_root_candidates() -> list[Path]:
@@ -232,3 +269,9 @@ def _resolve_repo_path(raw_path: str) -> Path:
     if candidate.is_absolute():
         return candidate
     return REPO_ROOT / candidate
+
+
+def _resolve_env_file(path: Path, *, fallback: Path) -> Path:
+    if path.exists():
+        return path
+    return fallback

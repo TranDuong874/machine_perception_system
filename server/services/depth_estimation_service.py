@@ -19,6 +19,7 @@ if DEPTH_ANYTHING_SRC.exists() and str(DEPTH_ANYTHING_SRC) not in sys.path:
 @dataclass(frozen=True)
 class DepthEstimationResult:
     depth: np.ndarray
+    confidence: np.ndarray | None
     inference_ms: float
     device: str
     model_id: str
@@ -73,8 +74,12 @@ class DepthEstimationService:
         )
         inference_ms = (time.perf_counter() - started) * 1000.0
         depth = np.asarray(prediction.depth[0], dtype=np.float32)
+        confidence = None
+        if prediction.conf is not None:
+            confidence = np.asarray(prediction.conf[0], dtype=np.float32)
         return DepthEstimationResult(
             depth=depth,
+            confidence=confidence,
             inference_ms=inference_ms,
             device=self._runtime_device,
             model_id=self._model_id,

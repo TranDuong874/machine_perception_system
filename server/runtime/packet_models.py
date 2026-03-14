@@ -19,3 +19,7 @@ class IngestionMetrics:
     processed_packets: int = 0
     processing_errors: int = 0
     last_timestamp_ns: int | None = None
+    depth_jobs_enqueued: int = 0
+    depth_jobs_dropped: int = 0
+    memory_jobs_enqueued: int = 0
+    memory_jobs_dropped: int = 0
