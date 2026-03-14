@@ -1,3 +1,3 @@
-from .ClientRuntime import ClientRuntime
+from .client_runtime import ClientRuntime
 
 __all__ = ["ClientRuntime"]

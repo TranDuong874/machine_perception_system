@@ -6,10 +6,10 @@ import sys
 import time
 
 from config import ClientConfig
-from input_source.EurocInputSource import EurocInputSource
-from input_source.StreamRunner import StreamRunner
+from input_source.euroc_input_source import EurocInputSource
+from input_source.stream_runner import StreamRunner
 from local_services import DetectionService, SlamService
-from schema.SensorSchema import EnrichedPerceptionPacket, InputSample, OrbResult, SynchronizedSensorPacket, YoloResult
+from schema.sensor_schema import EnrichedPerceptionPacket, InputSample, OrbResult, SynchronizedSensorPacket, YoloResult
 from state import PerceptionSnapshot, SharedClientState
 from sync import SensorPacketSynchronizer
 from transport import create_client_from_env

@@ -4,7 +4,7 @@ import queue
 import threading
 from typing import Generic, TypeVar
 
-from .InputSource import InputSource
+from .input_source import InputSource
 
 
 T = TypeVar("T")

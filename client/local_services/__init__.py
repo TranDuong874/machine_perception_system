@@ -1,2 +1,2 @@
-from .DetectionService import DetectionService
-from .SlamService import SlamService
+from .detection_service import DetectionService
+from .slam_service import SlamService

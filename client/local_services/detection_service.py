@@ -8,7 +8,7 @@ import threading
 import cv2
 import numpy as np
 
-from schema.SensorSchema import SynchronizedSensorPacket, YoloDetection, YoloResult
+from schema.sensor_schema import SynchronizedSensorPacket, YoloDetection, YoloResult
 
 
 class DetectionService:

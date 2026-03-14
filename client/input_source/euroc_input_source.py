@@ -7,8 +7,8 @@ from typing import Iterator
 
 import cv2
 
-from .InputSource import InputSource
-from schema.SensorSchema import FrameSample, IMUSample, InputSample
+from .input_source import InputSource
+from schema.sensor_schema import FrameSample, IMUSample, InputSample
 
 
 class EurocInputSource(InputSource[InputSample]):

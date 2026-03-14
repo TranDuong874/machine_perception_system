@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import threading
 
-from schema.SensorSchema import EnrichedPerceptionPacket, SynchronizedSensorPacket
+from schema.sensor_schema import EnrichedPerceptionPacket, SynchronizedSensorPacket
 
 
 @dataclass(frozen=True)

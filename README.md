@@ -16,14 +16,14 @@ Shell environment variables still override values from those files.
 ### Client
 - `client/main.py` bootstraps only.
 - `client/config.py` resolves dataset/model paths, GUI flags, and runtime env config.
-- `client/runtime/ClientRuntime.py` coordinates the client pipelines and shared state.
-- `client/pipeline/PerceptionPipeline.py` owns sensor ingestion, local perception, packet enrichment, and server send.
-- `client/ui/UserViewPipeline.py` renders the local preview and user-facing view from shared client state.
-- `client/state/SharedClientState.py` is the handoff point between perception and UI.
-- `client/sync/SensorPacketSynchronizer.py` groups raw frame and IMU samples into synchronized packets.
-- `client/transport/GrpcPerceptionClient.py` sends `EnrichedPerceptionPacket` to the server over gRPC.
-- `client/transport/GrpcAssistantClient.py` is a placeholder for future prompt/assistant RPCs.
-- `user_interface/UserViewRenderer` renders wearable-facing user view from local frames.
+- `client/runtime/client_runtime.py` coordinates the client pipelines and shared state.
+- `client/pipeline/perception_pipeline.py` owns sensor ingestion, local perception, packet enrichment, and server send.
+- `client/ui/user_view_pipeline.py` renders the local preview and user-facing view from shared client state.
+- `client/state/shared_client_state.py` is the handoff point between perception and UI.
+- `client/sync/sensor_packet_synchronizer.py` groups raw frame and IMU samples into synchronized packets.
+- `client/transport/grpc_perception_client.py` sends `EnrichedPerceptionPacket` to the server over gRPC.
+- `client/transport/grpc_assistant_client.py` is a placeholder for future prompt/assistant RPCs.
+- `client/user_interface/user_view_renderer.py` renders wearable-facing user view from local frames.
 - `SlamService` talks to local native ORB adapter (TCP, local).
 - Local processing preview window remains available for debugging.
 

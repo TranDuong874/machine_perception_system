@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 
-from schema.SensorSchema import IMUSample, InputSample, SynchronizedSensorPacket
+from schema.sensor_schema import IMUSample, InputSample, SynchronizedSensorPacket
 
 
 class SensorPacketSynchronizer:

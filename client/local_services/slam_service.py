@@ -9,7 +9,7 @@ import threading
 import cv2
 import numpy as np
 
-from schema.SensorSchema import OrbResult, SynchronizedSensorPacket
+from schema.sensor_schema import OrbResult, SynchronizedSensorPacket
 
 
 MAX_MESSAGE_BYTES = 64 * 1024 * 1024

@@ -7,7 +7,7 @@ import sys
 import cv2
 import grpc
 
-from schema.SensorSchema import EnrichedPerceptionPacket
+from schema.sensor_schema import EnrichedPerceptionPacket
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
