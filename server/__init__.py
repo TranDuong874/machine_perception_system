@@ -1,0 +1,1 @@
+"""Minimal gRPC server package."""

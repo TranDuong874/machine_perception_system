@@ -7,7 +7,7 @@ import sys
 import cv2
 import grpc
 
-from schema.SensorSchema import ServerPerceptionPacket
+from schema.SensorSchema import EnrichedPerceptionPacket
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -17,7 +17,7 @@ if str(REPO_ROOT) not in sys.path:
 from proto import perception_pb2, perception_pb2_grpc  # noqa: E402
 
 
-class GrpcServerBridgeClient:
+class GrpcPerceptionClient:
     def __init__(self, host: str, port: int, timeout_s: float) -> None:
         self._target = f"{host}:{int(port)}"
         self._timeout_s = float(timeout_s)
@@ -27,19 +27,19 @@ class GrpcServerBridgeClient:
     def close(self) -> None:
         self._channel.close()
 
-    def send_packet(self, packet: ServerPerceptionPacket) -> perception_pb2.SubmitPacketReply:
+    def send_packet(self, packet: EnrichedPerceptionPacket) -> perception_pb2.SubmitPacketReply:
         request = perception_pb2.SubmitPacketRequest(packet=_to_proto_packet(packet))
         return self._stub.SubmitPacket(request, timeout=self._timeout_s)
 
 
-def create_from_env() -> GrpcServerBridgeClient:
+def create_client_from_env() -> GrpcPerceptionClient:
     host = os.environ.get("MPS_SERVER_HOST", "127.0.0.1")
     port = int(os.environ.get("MPS_SERVER_PORT", "19100"))
     timeout_s = float(os.environ.get("MPS_SERVER_TIMEOUT_S", "0.4"))
-    return GrpcServerBridgeClient(host=host, port=port, timeout_s=timeout_s)
+    return GrpcPerceptionClient(host=host, port=port, timeout_s=timeout_s)
 
 
-def _to_proto_packet(packet: ServerPerceptionPacket) -> perception_pb2.ServerPerceptionPacket:
+def _to_proto_packet(packet: EnrichedPerceptionPacket) -> perception_pb2.ServerPerceptionPacket:
     proto_packet = perception_pb2.ServerPerceptionPacket(
         timestamp_ns=int(packet.timestamp_ns),
         image_jpeg=_encode_jpeg(packet.image_bgr),

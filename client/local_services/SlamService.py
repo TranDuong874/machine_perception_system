@@ -9,7 +9,7 @@ import threading
 import cv2
 import numpy as np
 
-from schema.SensorSchema import LocalSensorPacket, OrbResult
+from schema.SensorSchema import OrbResult, SynchronizedSensorPacket
 
 
 MAX_MESSAGE_BYTES = 64 * 1024 * 1024
@@ -29,7 +29,7 @@ class SlamService:
         self.result_timeout_s = result_timeout_s
         self.connect_timeout_s = connect_timeout_s
 
-        self.input_queue: queue.Queue[LocalSensorPacket] = queue.Queue(maxsize=queue_size)
+        self.input_queue: queue.Queue[SynchronizedSensorPacket] = queue.Queue(maxsize=queue_size)
         self._results: dict[int, OrbResult] = {}
         self._condition = threading.Condition()
         self._stop_event = threading.Event()
@@ -49,7 +49,7 @@ class SlamService:
         if self._worker_thread is not None:
             self._worker_thread.join(timeout=2.0)
 
-    def submit(self, packet: LocalSensorPacket) -> None:
+    def submit(self, packet: SynchronizedSensorPacket) -> None:
         if not self.input_queue.full():
             self.input_queue.put_nowait(packet)
             return
@@ -79,7 +79,7 @@ class SlamService:
                 self._results[packet.timestamp_ns] = result
                 self._condition.notify_all()
 
-    def _process_packet(self, packet: LocalSensorPacket) -> OrbResult:
+    def _process_packet(self, packet: SynchronizedSensorPacket) -> OrbResult:
         try:
             payload = self._request_orb(packet)
             self._service_state = "RUNNING"
@@ -94,7 +94,7 @@ class SlamService:
             self._service_state = "ADAPTER_PROTOCOL_ERROR"
             return OrbResult(tracking_state=self._service_state, error=f"unexpected adapter error: {exc}")
 
-    def _request_orb(self, packet: LocalSensorPacket) -> dict:
+    def _request_orb(self, packet: SynchronizedSensorPacket) -> dict:
         payload = _build_request_payload(packet)
         try:
             with socket.create_connection((self.host, self.port), timeout=self.connect_timeout_s) as connection:
@@ -112,7 +112,7 @@ class SlamService:
         return response
 
 
-def _build_request_payload(packet: LocalSensorPacket) -> dict:
+def _build_request_payload(packet: SynchronizedSensorPacket) -> dict:
     ok, encoded = cv2.imencode(".jpg", packet.image_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
     if not ok:
         raise RuntimeError("failed to encode request image")

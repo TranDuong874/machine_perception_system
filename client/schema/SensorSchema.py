@@ -15,7 +15,7 @@ class FrameSample:
     image_bgr: np.ndarray
 
 @dataclass(frozen=True)
-class LocalSensorPacket:
+class SynchronizedSensorPacket:
     timestamp_ns: int
     image_bgr: np.ndarray
     imu_samples: tuple[IMUSample, ...]
@@ -48,7 +48,7 @@ class YoloResult:
 
 
 @dataclass(frozen=True)
-class ServerPerceptionPacket:
+class EnrichedPerceptionPacket:
     timestamp_ns: int
     image_bgr: np.ndarray
     imu_samples: tuple[IMUSample, ...]

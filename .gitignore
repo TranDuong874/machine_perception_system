@@ -8,4 +8,6 @@ integration/orb_native/bin/
 integration/orb_native/build/
 dependency/ORB_SLAM3/
 dependency/ORB_SLAM3_FIXED/
+dependency/Depth-Anything-3/
+open_clip_faiss_demo/
 models/orbvoc.txt.bin

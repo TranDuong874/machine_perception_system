@@ -8,7 +8,7 @@ import threading
 import cv2
 import numpy as np
 
-from schema.SensorSchema import LocalSensorPacket, YoloDetection, YoloResult
+from schema.SensorSchema import SynchronizedSensorPacket, YoloDetection, YoloResult
 
 
 class DetectionService:
@@ -22,7 +22,7 @@ class DetectionService:
         self.model_path = Path(model_path)
         self.device = device
         self.confidence_threshold = confidence_threshold
-        self.input_queue: queue.Queue[LocalSensorPacket] = queue.Queue(maxsize=queue_size)
+        self.input_queue: queue.Queue[SynchronizedSensorPacket] = queue.Queue(maxsize=queue_size)
         self._results: dict[int, YoloResult] = {}
         self._condition = threading.Condition()
         self._stop_event = threading.Event()
@@ -44,7 +44,7 @@ class DetectionService:
         if self._worker_thread is not None:
             self._worker_thread.join(timeout=2.0)
 
-    def submit(self, packet: LocalSensorPacket) -> None:
+    def submit(self, packet: SynchronizedSensorPacket) -> None:
         if not self.input_queue.full():
             self.input_queue.put_nowait(packet)
             return
@@ -72,7 +72,7 @@ class DetectionService:
                 self._results[packet.timestamp_ns] = result
                 self._condition.notify_all()
 
-    def _detect(self, packet: LocalSensorPacket) -> YoloResult:
+    def _detect(self, packet: SynchronizedSensorPacket) -> YoloResult:
         model = self._ensure_model()
         if model is None:
             return YoloResult(error=self._model_error)

@@ -47,4 +47,7 @@ class UserViewRenderer:
         cv2.imshow(self.window_name, frame)
 
     def close(self) -> None:
-        cv2.destroyWindow(self.window_name)
+        try:
+            cv2.destroyWindow(self.window_name)
+        except cv2.error:
+            pass
